@@ -1,0 +1,4 @@
+requests
+pydantic==2.11.2
+python-dotenv
+selenium==4.30.0
