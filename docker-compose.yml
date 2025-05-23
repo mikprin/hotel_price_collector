@@ -3,65 +3,22 @@ version: "3.9"
 
 services:
 
-  influxdb:
-    image: influxdb:2.7
-    container_name: price-monitor-influxdb
-    ports:
-      - "8086:8086"
-    volumes:
-      - influxdb-data:/var/lib/influxdb2
-      - influxdb-config:/etc/influxdb2
-    environment:
-      - DOCKER_INFLUXDB_INIT_MODE=setup
-      - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUXDB_USERNAME}
-      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_PASSWORD}
-      - DOCKER_INFLUXDB_INIT_ORG=${INFLUXDB_ORG}
-      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUXDB_BUCKET}
-      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_TOKEN}
-    restart: unless-stopped
-    networks:
-      - hotel_prices_network
-  streamlit_front:
+  streamlit_app:
+    env_file:
+      - .env
     build:
-      context: ./streamlit_front
+      context: ./streamlit_app
       dockerfile: Dockerfile
+    volumes:
+      - ./hotel_price_absorber_src:/app/hotel_price_absorber_src
+      - ./database:/database
     container_name: streamlit-front-app
     ports:
       - "8501:8501"
-    environment:
-      - INFLUXDB_URL=http://influxdb:8086
-      - INFLUXDB_TOKEN=${INFLUXDB_TOKEN}
-      - INFLUXDB_ORG=${INFLUXDB_ORG}
-      - INFLUXDB_BUCKET=${INFLUXDB_BUCKET}
-    depends_on:
-      - influxdb
     restart: unless-stopped
     networks:
       - hotel_prices_network
 
-  scraper:
-    build: .
-    container_name: scraper_worker
-    depends_on:
-      - redis
-    volumes:
-      - .:/app
-    environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/1
-    command: celery -A celery_app worker --loglevel=info
-
-  beat:
-    build: .
-    container_name: scheduler_beat
-    depends_on:
-      - redis
-    volumes:
-      - .:/app
-    environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/1
-    command: celery -A celery_app beat --loglevel=info
   hotel_prices_redis:
     container_name: hotel_prices_redis
     image: redis
@@ -74,7 +31,29 @@ services:
     ports:
       - "16380:16380"
     environment:
-    - REDIS_MAXMEMORY=2048mb # Limit Redis memory usage to 1024mb
+    - REDIS_MAXMEMORY=2048mb
+    networks:
+      - hotel_prices_network
+
+  worker:
+    build: .
+    env_file:
+      - .env
+    command: rq worker
+    # command: sleep infinity
+    volumes:
+    # - ./hotel_price_absorber_src:/app/hotel_price_absorber_src
+    - ./scripts:/home/seluser/scripts
+    - ./database:/home/seluser/database
+    ports:
+        - "4444:4444"
+        - "7900:7900"
+    shm_size: 4g
+    environment:
+      - DB_PATH=/home/seluser/database
+      - REDIS_URL=redis://hotel_prices_redis:16380
+    depends_on:
+      - hotel_prices_redis
     networks:
       - hotel_prices_network
 

@@ -19,7 +19,7 @@ Hotel Price Absorber helps you track and compare hotel prices over specific date
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/hotel-price-absorber.git
+git clone ...
 cd hotel-price-absorber
 
 # Install dependencies

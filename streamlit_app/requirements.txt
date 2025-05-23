@@ -1,4 +1,9 @@
+requests
+selenium==4.30.0
 streamlit==1.44.1
 pydantic==2.11.2
 python-dotenv
 matplotlib==3.10.1
+redis==6.1.0
+rq==2.3.3
+polars

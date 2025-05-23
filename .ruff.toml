@@ -1,0 +1,26 @@
+line-length = 176
+
+exclude = [
+    "docs/",
+    "tests/",
+    ".venv*/",
+    "scripts/",
+    ".git",
+]
+
+[lint]
+# Select rules to enforce
+select = [
+    "B",    # Bugbear codes
+    "I",    # isort rules
+    "E",    # PEP 8 errors
+]
+
+# Ignore specific rules
+ignore = [
+    "B026",  # Star-arg unpacking after a keyword argument is explicitly allowed
+    "B904",  # assertRaises Exception too broad
+    "E722", # do not use bare except
+    "B007"
+]
+

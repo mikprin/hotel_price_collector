@@ -1,11 +1,14 @@
-from hotel_price_absorber_src.ostrovok.scraper import get_price_from_simple_url
 import os
-from datetime import datetime, timedelta
-import polars as pl
-import time
 import random
-import matplotlib.pyplot as plt
+import time
+from datetime import datetime, timedelta
+
 import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
+import polars as pl
+
+from hotel_price_absorber_src.ostrovok.scraper import get_price_from_simple_url
+
 
 def create_date_specific_url(url, start_date, length_of_stay=1):
     """

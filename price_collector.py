@@ -1,17 +1,16 @@
 # Collect price for following dates range:
 
-from hotel_price_absorber_src.date_utils import replace_dates_with_placeholder
+import argparse
+import os
+import random
+import time
+from datetime import datetime, timedelta
 
-
+import polars as pl
 
 from hotel_price_absorber_src.date_utils import replace_dates_with_placeholder
 from hotel_price_absorber_src.ostrovok.scraper import get_price_from_simple_url
-import os
-import polars as pl
-import time
-import random
-from datetime import datetime, timedelta
-import argparse
+
 
 def parse_date_range(date_range_str):
     """

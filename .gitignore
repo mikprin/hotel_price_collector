@@ -1,0 +1,6 @@
+.env
+.vscode
+database/
+*.ipynb
+redis_data/
+**/__pycache__/

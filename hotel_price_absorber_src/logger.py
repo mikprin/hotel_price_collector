@@ -1,5 +1,6 @@
 import logging
 
+
 def setup_logger(name: str, log_file: str | None = None, level: int = logging.DEBUG) -> logging.Logger:
     """
     Set up a logger with a specific name and log file.

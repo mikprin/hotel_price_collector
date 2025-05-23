@@ -24,4 +24,4 @@ EXPOSE 8501
 ENV PYTHONUNBUFFERED=1
 
 # Run the application
-CMD ["streamlit", "run", "app.py", "--server.address=0.0.0.0"]
+CMD ["streamlit", "run", "streamlit_demo.py", "--server.address=0.0.0.0"]

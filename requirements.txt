@@ -2,3 +2,6 @@ requests
 pydantic==2.11.2
 python-dotenv
 selenium==4.30.0
+redis==6.1.0
+rq==2.3.3
+polars
