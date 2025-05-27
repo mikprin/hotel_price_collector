@@ -8,10 +8,21 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
 
+
+# Add these imports at the top of your file
+import plotly.graph_objects as go
+import plotly.express as px
+import polars as pl
+from hotel_price_absorber_src.database.sqlite import HotelPriceDB
+
+from uuid import uuid4
+
 from hotel_price_absorber_src.database.redis import PriceRange, RedisStorage
 from hotel_price_absorber_src.database.user_database import HotelGroup, HotelLink, UserDataStorage
 from hotel_price_absorber_src.date_utils import validate_date_range
 from hotel_price_absorber_src.tasks import get_price_range_for_group
+from hotel_price_absorber_src.database.data_conversion import  get_group_dataframe
+
 
 # Initialize the storage
 storage = UserDataStorage()
@@ -32,17 +43,23 @@ def extract_dates(date_range: str) -> tuple:
     return start_str, end_str
 
 def get_date_range(group_name: str, date_range: str, days_of_stay: int):
+    """Get new price range from dates"""
+    if not validate_date_range(date_range):
+        return False
+    uuid = uuid4()
     
     start_date, end_date = extract_dates(date_range)
     return PriceRange(
-    created_at=int(time.time()),
-    group_name=group_name,
-    start_date=start_date,
-    end_date=end_date,
-    days_of_stay=days_of_stay)
+        created_at=int(time.time()),
+        group_name=group_name,
+        start_date=start_date,
+        end_date=end_date,
+        days_of_stay=days_of_stay,
+        run_id=str(uuid),
+        )
 
 # Function to add a new price range
-def add_price_range(group_name: str, date_range: str, days_of_stay: int) -> bool:
+def add_price_range(range: PriceRange) -> bool:
     """Add a new price range for a group"""
     if not validate_date_range(date_range):
         return False
@@ -65,8 +82,8 @@ def remove_hotel_from_group(group_name: str, hotel_url: str):
     return storage.remove_hotel_from_group(group_name, hotel_url)
 
 # Function to add a new group
-def add_new_group(group_name: str,  description: str | None = None):
-    group = HotelGroup(group_name=group_name,hotels=[], description=description)
+def add_new_group(group_name: str,  description: str | None = None, location : str | None = None):
+    group = HotelGroup(group_name=group_name,hotels=[], description=description, location=location)
     return storage.add_group(group)
 
 # Function to delete a group
@@ -103,7 +120,7 @@ def generate_price_data(hotel_url, days=30):
 st.title("Hotel Price Monitor")
 
 # Create main tabs
-tab1, tab2, tab3 = st.tabs(["Manage Links", "Price Ranges", "Price Analytics"])
+tab1, tab2, tab3 = st.tabs(["Manage Links", "Price Ranges (Сбор данных)", "Price Analytics"])
 
 # Tab 1: Manage Links
 with tab1:
@@ -218,7 +235,10 @@ https://ostrovok.ru/hotel/russia/sochi/mid10515790/silva_guest_house/?q=2042&dat
                     new_name = st.text_input("Hotel name", key=f"new_name_{group.group_name}", placeholder="Новый чудо отель!")
                     submitted = st.form_submit_button("Add Hotel")
                     if submitted and new_url and new_name:
-                        if add_hotel_to_group(group.group_name, new_url, name=new_name):
+                        # Check if hotel name is already in the group
+                        if any(hotel.name == new_name for hotel in group.hotels) or new_name == "" or new_name is None:
+                            st.error(f"Hotel with name '{new_name}' already exists in {group.group_name}. Please choose a different name.")
+                        elif add_hotel_to_group(group.group_name, new_url, name=new_name):
                             st.success(f"Added hotel to {group.group_name} with name {new_name}")
                             st.rerun()
                         else:
@@ -267,9 +287,10 @@ with tab2:
                         elif not validate_date_range(date_range):
                             st.error("Неверный формат диапазона дат. Используйте формат дд.мм.гггг-дд.мм.гггг и убедитесь, что конечная дата позже начальной.")
                         else:
-                            if add_price_range(group_name, date_range, days_of_stay):
-                                date_range = get_date_range(group_name, date_range, days_of_stay)
+                            date_range = get_date_range(group_name, date_range, days_of_stay)
+                            if date_range:
                                 job_id = redis_storage.add_job( get_price_range_for_group, date_range)
+                                date_range.job_id = job_id
                                 st.success(f"Диапазон дат добавлен для группы {group_name}, JOB_ID: {job_id}")
                                 st.rerun()
                             else:
@@ -284,18 +305,29 @@ with tab2:
                     # Convert to DataFrame for display
                     ranges_data = []
                     for pr in price_ranges:
+                        
+                        if pr.job_id:
+                            status = redis_storage.get_job_status(job_id=pr.job_id)
+
+                        if pr.run_id:
+                            run_id = pr.run_id
+                        else:
+                            run_id = ""
+                        
                         ranges_data.append({
                             "Диапазон дат": f"{pr.start_date}-{pr.end_date}",
                             "Длительность пребывания": pr.days_of_stay,
                             "Дата создания": datetime.fromtimestamp(pr.created_at).strftime("%Y-%m-%d %H:%M"),
-                            "created_at": pr.created_at  # Hidden column for delete operation
+                            "created_at": pr.created_at,  # Hidden column for delete operation,
+                            "Статус": status if pr.job_id else "Неизвестно",
+                            "run id": run_id,
                         })
                     
                     df = pd.DataFrame(ranges_data)
                     
                     # Display table (non-editable)
                     st.dataframe(
-                        df[["Диапазон дат", "Длительность пребывания", "Дата создания"]],
+                        df[["Диапазон дат", "Длительность пребывания", "Дата создания", "Статус","run id"]],
                         hide_index=True
                     )
                     
@@ -319,6 +351,8 @@ with tab2:
                             else:
                                 st.error(f"Не удалось удалить диапазон")
 
+# Replace your existing Tab 3: Price Analytics section with this:
+
 # Tab 3: Price Analytics
 with tab3:
     st.header("Анализ собранных цен")
@@ -328,73 +362,209 @@ with tab3:
     if not groups:
         st.info("No hotel groups added yet. Please add a group and hotels in the 'Manage Links' tab.")
     else:
-        # Create a flat list of all hotels with their group information
-        all_hotels = []
-        for group in groups:
-            for hotel in group.hotels:
-                all_hotels.append({
-                    "group_name": group.group_name,
-                    "url": hotel.url
-                })
+        group_names = [group.group_name for group in groups]
+        # Create subtabs for each group
+        subtabs = st.tabs(group_names)
         
-        if not all_hotels:
-            st.info("No hotels added yet. Please add hotels in the 'Manage Links' tab.")
-        else:
-            # Hotel selector
-            hotel_urls = [f"{hotel['group_name']} - {hotel['url']}" for hotel in all_hotels]
-            selected_hotel = st.selectbox("Select Hotel", hotel_urls)
-            
-            # Parse selection to get group name and URL
-            selected_group, selected_url = selected_hotel.split(" - ", 1)
-            
-            # Date range selector
-            date_range = st.slider("Date Range (days)", 7, 90, 30)
-            
-            # Get price data for selected hotel
-            price_data = generate_price_data(selected_url, days=date_range)
-            
-            # Display statistics
-            st.subheader("Price Statistics")
-            col1, col2, col3, col4 = st.columns(4)
-            
-            current_price = price_data['price'].iloc[-1]
-            min_price = price_data['price'].min()
-            max_price = price_data['price'].max()
-            avg_price = price_data['price'].mean()
-            
-            col1.metric("Current Price", f"${current_price:.2f}")
-            col2.metric("Minimum Price", f"${min_price:.2f}")
-            col3.metric("Maximum Price", f"${max_price:.2f}")
-            col4.metric("Average Price", f"${avg_price:.2f}")
-            
-            # Plot price history
-            st.subheader("Price History Chart")
-            fig, ax = plt.subplots(figsize=(10, 6))
-            ax.plot(price_data['date'], price_data['price'], marker='o', linestyle='-')
-            ax.set_title(f"{selected_url} - Price History")
-            ax.set_xlabel("Date")
-            ax.set_ylabel("Price ($)")
-            ax.grid(True)
-            
-            # Show every nth label to avoid crowding
-            n = max(1, len(price_data) // 10)
-            plt.xticks(range(0, len(price_data), n), price_data['date'][::n], rotation=45)
-            
-            plt.tight_layout()
-            st.pyplot(fig)
-            
-            # Show raw data
-            with st.expander("View Raw Data / Табличные данные!"):
-                st.dataframe(price_data)
-            
-            # Add download button for CSV
-            st.download_button(
-                label="Download Price Data as CSV (exel format)",
-                data=price_data.to_csv(index=False).encode('utf-8'),
-                file_name=f"{selected_url}_price_history.csv",
-                mime="text/csv",
-            )
-
-# Footer
+        # Initialize database connection
+        db = HotelPriceDB()
+        
+        for i, group in enumerate(groups):
+            with subtabs[i]:
+                st.subheader(f"Аналитика для группы {group.group_name}")
+                
+                try:
+                    # Get data for this group
+                    df = get_group_dataframe(group.group_name, remove_duplecates=True)
+                    # Check if the DataFrame is empty
+                    if df.is_empty():
+                        st.info(f"No price data found for group '{group.group_name}'. Add some price ranges in the 'Price Ranges' tab and wait for data collection to complete.")
+                        continue
+                    
+                    # Parse dates in Polars (DD-MM-YYYY format)
+                    df = df.with_columns([
+                        pl.col("check_in_date").str.to_date("%d-%m-%Y").alias("check_in_date")
+                    ])
+                    
+                    # Display basic statistics using Polars
+                    st.subheader("📊 Статистика по ценам")
+                    
+                    col1, col2, col3, col4 = st.columns(4)
+                    
+                    with col1:
+                        total_records = df.height
+                        st.metric("Всего записей", total_records)
+                    
+                    with col2:
+                        unique_hotels = df['hotel_name'].n_unique() if 'hotel_name' in df.columns else 0
+                        st.metric("Уникальных отелей", unique_hotels)
+                    
+                    with col3:
+                        if 'hotel_price' in df.columns:
+                            avg_price = df['hotel_price'].mean()
+                            st.metric("Средняя цена", f"₽{avg_price:,.0f}")
+                        else:
+                            pl.DataFrame(db.get_all_by_group(group.group_name), infer_schema_length=None)
+                            st.metric("Средняя цена", "N/A")
+                    
+                    with col4:
+                        if 'check_in_date' in df.columns:
+                            min_date = df['check_in_date'].min()
+                            max_date = df['check_in_date'].max()
+                            date_range = f"{min_date} - {max_date}"
+                            st.metric("Период данных", date_range)
+                        else:
+                            st.metric("Период данных", "N/A")
+                    
+                    # Show data preview
+                    with st.expander("Просмотр данных"):
+                        st.dataframe(df.to_pandas())  # Only convert for display
+                    
+                    # Check if we have the required columns for plotting
+                    required_columns = ['hotel_name', 'check_in_date', 'hotel_price']
+                    missing_columns = [col for col in required_columns if col not in df.columns]
+                    
+                    if missing_columns:
+                        st.error(f"Missing required columns for plotting: {missing_columns}")
+                        st.info("Available columns: " + ", ".join(df.columns))
+                        continue
+                    
+                    # Main price chart - Plotly works directly with Polars!
+                    st.subheader("📈 Динамика цен по отелям")
+                    
+                    # Chart type selection
+                    chart_type = st.radio(
+                        "Выберите тип графика:",
+                        ["Линейный график", "График с маркерами", "Только маркеры"],
+                        horizontal=True,
+                        key=f"chart_type_{group.group_name}"
+                    )
+                    
+                    # Create the plot using plotly.express directly with Polars
+                    if chart_type == "Линейный график":
+                        mode = 'lines'
+                    elif chart_type == "График с маркерами":
+                        mode = 'lines+markers'
+                    else:
+                        mode = 'markers'
+                    
+                    # Plotly Express works directly with Polars DataFrames!
+                    fig = px.line(
+                        df,
+                        x='check_in_date',
+                        y='hotel_price',
+                        color='hotel_name',
+                        markers=(mode in ['lines+markers', 'markers']),
+                        title=f'Динамика цен отелей - {group.group_name}',
+                        labels={
+                            'check_in_date': 'Дата заезда',
+                            'hotel_price': 'Цена (₽)',
+                            'hotel_name': 'Отель'
+                        }
+                    )
+                    
+                    # Update layout for better appearance
+                    fig.update_layout(
+                        width=None,  # Let streamlit control width
+                        height=600,
+                        hovermode='x unified',
+                        legend=dict(
+                            orientation="v",
+                            yanchor="top",
+                            y=1,
+                            xanchor="left",
+                            x=1.02
+                        ),
+                        xaxis_title='Дата заезда',
+                        yaxis_title='Цена (₽)',
+                        template='plotly_white'
+                    )
+                    
+                    # Update x-axis to rotate labels and show grid
+                    fig.update_xaxes(tickangle=45, showgrid=True, gridwidth=1, gridcolor='LightGray')
+                    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='LightGray')
+                    
+                    # Display the plot in Streamlit
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Additional analytics using Polars
+                    st.subheader("📊 Дополнительная аналитика")
+                    
+                    # Price comparison table using Polars
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.subheader("Статистика по отелям")
+                        
+                        # Calculate hotel statistics using Polars
+                        hotel_stats = df.group_by('hotel_name').agg([
+                            pl.col('hotel_price').min().alias('Минимальная цена'),
+                            pl.col('hotel_price').max().alias('Максимальная цена'),
+                            pl.col('hotel_price').mean().alias('Средняя цена'),
+                            pl.col('hotel_price').count().alias('Количество записей')
+                        ]).sort('hotel_name')
+                        
+                        # Convert to pandas only for display formatting
+                        hotel_stats_pandas = hotel_stats.to_pandas()
+                        
+                        # Format the prices with ruble symbol
+                        for col in ['Минимальная цена', 'Максимальная цена', 'Средняя цена']:
+                            hotel_stats_pandas[col] = hotel_stats_pandas[col].apply(lambda x: f"₽{x:,.0f}")
+                        
+                        st.dataframe(hotel_stats_pandas.set_index('hotel_name'))
+                    
+                    with col2:
+                        st.subheader("Ценовые диапазоны")
+                        # Create a box plot - works directly with Polars
+                        fig_box = px.box(
+                            df,
+                            x='hotel_name',
+                            y='hotel_price',
+                            title='Распределение цен по отелям',
+                            labels={
+                                'hotel_name': 'Отель',
+                                'hotel_price': 'Цена (₽)'
+                            }
+                        )
+                        
+                        fig_box.update_layout(
+                            height=400,
+                            xaxis_tickangle=45,
+                            template='plotly_white'
+                        )
+                        
+                        st.plotly_chart(fig_box, use_container_width=True)
+                    
+                    # Date range analysis
+                    if df['check_in_date'].n_unique() > 1:
+                        st.subheader("📅 Анализ по датам")
+                        
+                        # Average price by date using Polars
+                        daily_avg = df.group_by('check_in_date').agg([
+                            pl.col('hotel_price').mean().alias('hotel_price')
+                        ]).sort('check_in_date')
+                        
+                        # Plotly works directly with Polars
+                        fig_daily = px.line(
+                            daily_avg,
+                            x='check_in_date',
+                            y='hotel_price',
+                            title='Средняя цена по датам',
+                            labels={
+                                'check_in_date': 'Дата заезда',
+                                'hotel_price': 'Средняя цена (₽)'
+                            }
+                        )
+                        
+                        fig_daily.update_layout(
+                            height=400,
+                            template='plotly_white'
+                        )
+                        
+                        st.plotly_chart(fig_daily, use_container_width=True)
+                
+                except Exception as e:
+                    st.error(f"Error loading data for group '{group.group_name}': {str(e)}")
+                    st.info("Make sure you have collected some price data for this group.")
 st.markdown("---")
 st.caption("Hotel Price Monitor App - Prototype Version")

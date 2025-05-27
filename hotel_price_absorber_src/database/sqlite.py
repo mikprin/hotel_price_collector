@@ -60,7 +60,8 @@ class HotelPriceDB:
             hotel_currency TEXT,
             room_name TEXT,
             comments TEXT,
-            group_name TEXT
+            group_name TEXT,
+            run_id TEXT
         )
         ''')
         
@@ -89,8 +90,8 @@ class HotelPriceDB:
         cursor.execute(f'''
         INSERT INTO {table_name} (
             hotel_url, hotel_price, measurment_taken_at, check_in_date, check_out_date,
-            hotel_name, hotel_currency, room_name, comments, group_name
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            hotel_name, hotel_currency, room_name, comments, group_name, run_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             hotel_price.hotel_url,
             hotel_price.hotel_price,
@@ -101,7 +102,8 @@ class HotelPriceDB:
             hotel_price.hotel_currency,
             hotel_price.room_name,
             hotel_price.comments,
-            hotel_price.group_name
+            hotel_price.group_name,
+            hotel_price.run_id
         ))
         
         self.conn.commit()
@@ -148,6 +150,33 @@ class HotelPriceDB:
             return []
         
         cursor.execute(f"SELECT * FROM {table_name}")
+        return [dict(row) for row in cursor.fetchall()]
+    
+    
+    def get_all_by_run_id(self, group_name: str, run_id: str) -> List[Dict[str, Any]]:
+        """
+        Get all hotel price records for a specific group and run_id.
+        
+        Args:
+            group_name: The group to search in
+            run_id: The run ID to filter by
+            
+        Returns:
+            List of matching records
+        """
+        table_name = self._get_safe_table_name(group_name)
+        cursor = self.conn.cursor()
+        
+        # Check if table exists
+        cursor.execute(f"""
+        SELECT name FROM sqlite_master 
+        WHERE type='table' AND name=?
+        """, (table_name,))
+        
+        if not cursor.fetchone():
+            return []
+            
+        cursor.execute(f"SELECT * FROM {table_name} WHERE run_id = ?", (run_id,))
         return [dict(row) for row in cursor.fetchall()]
     
     def search(self, group_name: str, **filters) -> List[Dict[str, Any]]:
@@ -261,7 +290,7 @@ class HotelPriceDB:
         cursor.execute(f"DELETE FROM {table_name} WHERE id IN ({placeholders})", record_ids)
         self.conn.commit()
         
-        return cursor.rowcount > 0    
+        return cursor.rowcount > 0
 
     def get_all_groups(self) -> List[str]:
         """Get all group names that have tables in the database."""

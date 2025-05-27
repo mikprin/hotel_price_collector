@@ -1,6 +1,6 @@
 .env
 .vscode
-database/
+./database/
 *.ipynb
 redis_data/
 **/__pycache__/

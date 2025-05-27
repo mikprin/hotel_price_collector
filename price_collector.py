@@ -12,53 +12,27 @@ from hotel_price_absorber_src.date_utils import replace_dates_with_placeholder
 from hotel_price_absorber_src.ostrovok.scraper import get_price_from_simple_url
 
 
+from datetime import datetime
+
 def parse_date_range(date_range_str):
     """
-    Parse a date range string in Russian format and return start and end dates.
-    
-    Examples:
-    - Даты с 20 по 30 мая
-    - С 1 по 10 июня
-    - с 3 по 10 июля
-    - С 1 по 15 августа
+    Parse a date range string in the format 'DD.MM.YYYY – DD.MM.YYYY' and return start and end dates.
+
+    Example:
+    - '01.06.2025 – 07.06.2025'
     """
-    # Dictionary for Russian month names
-    month_map = {
-        'января': 1, 'февраля': 2, 'марта': 3, 'апреля': 4,
-        'мая': 5, 'июня': 6, 'июля': 7, 'августа': 8,
-        'сентября': 9, 'октября': 10, 'ноября': 11, 'декабря': 12
-    }
+    # Normalize the dash to a standard hyphen
+    date_range_str = date_range_str.replace('–', '-').strip()
     
-    # Lowercase and clean up the string
-    date_range_str = date_range_str.lower().strip()
-    
-    # Extract the start day, end day, and month
-    for month_name, month_num in month_map.items():
-        if month_name in date_range_str:
-            # Get the current year
-            current_year = datetime.now().year
-            
-            # Extract start and end days
-            parts = date_range_str.split(' ')
-            
-            # Find the day numbers
-            day_numbers = []
-            for part in parts:
-                if part.isdigit():
-                    day_numbers.append(int(part))
-            
-            # Need at least two numbers for start and end days
-            if len(day_numbers) >= 2:
-                start_day, end_day = day_numbers[0], day_numbers[1]
-                
-                # Create datetime objects
-                start_date = datetime(current_year, month_num, start_day)
-                end_date = datetime(current_year, month_num, end_day)
-                
-                return start_date, end_date
-    
-    # If parsing fails, raise an error
-    raise ValueError(f"Could not parse date range: {date_range_str}")
+    # Split the string into start and end dates
+    try:
+        start_str, end_str = [part.strip() for part in date_range_str.split('-')]
+        start_date = datetime.strptime(start_str, "%d.%m.%Y")
+        end_date = datetime.strptime(end_str, "%d.%m.%Y")
+        return start_date, end_date
+    except ValueError as e:
+        raise ValueError(f"Could not parse date range: {date_range_str}") from e
+
 
 def generate_date_pairs(start_date, end_date, stay_length=1):
     """

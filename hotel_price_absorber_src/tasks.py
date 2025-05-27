@@ -53,24 +53,30 @@ def get_price_range_for_group(range: PriceRange) -> bool:
             url = url.replace("$DATES", f"{formatted_start_date}-{formatted_end_date}")
 
             # Collect prices for the hotel
-            price = get_price_from_simple_url(url)
-            price.group_name = range.group_name
             
-            if hotel.name is not None:
-                price.hotel_name = hotel.name
+            try:
+                price = get_price_from_simple_url(url)
+                price.group_name = range.group_name
             
-            prices.append(price)
+                if hotel.name is not None:
+                    price.hotel_name = hotel.name
+                
+                if range.run_id is not None:
+                    price.run_id = range.run_id
 
-            lst_row_id = price_db.save(price)
+                prices.append(price)
+                lst_row_id = price_db.save(price)
             
-            if lst_row_id:
-                logger.info(f"Price {price} saved with ID: {lst_row_id}")
-            else:
-                logger.error(f"Failed to save price {price}")
+                if lst_row_id:
+                    logger.info(f"Price {price} saved with ID: {lst_row_id}")
+                else:
+                    logger.error(f"Failed to save price {price}")
+            except Exception as e:
+                logger.error(f"Error collecting price for hotel {hotel.name} for {formatted_start_date}:\n{e}")
 
-            # Simulate random delay between requests
-            time.sleep(random.uniform(0.5, 2.0))
-        
+            # Simulate a random delay between requests
+            time.sleep(random.uniform(0.5, 5.0))
+            
     # Convert the list of prices to a Polars DataFrame
     df = pl.DataFrame(prices)
 

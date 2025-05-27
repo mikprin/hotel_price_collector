@@ -12,12 +12,14 @@ from hotel_price_absorber_src.logger import general_logger as logger
 
 
 class PriceRange(BaseModel):
-    """Used to set range in which prices are needed to be collected"""
+    """Used to set the prices scrapping range. Effectively acts as a job."""
     created_at: int  # Timestamp when request was created
     group_name: str
     start_date: str
     end_date: str
     days_of_stay: int = 1
+    run_id: str | None = None  # Optional field for run ID
+    job_id: str | None = None  # Optional field for job ID in rq
 
 class RedisStorage:
     """Class to manage data storage in Redis."""
@@ -39,7 +41,7 @@ class RedisStorage:
             host=redis_host,
             port=redis_port,
             db=0,
-            decode_responses=True
+            decode_responses=False
         )
     
     def add_price_range(self, price_range: PriceRange) -> bool:
@@ -53,7 +55,9 @@ class RedisStorage:
                     "group_name": price_range.group_name,
                     "start_date": price_range.start_date,
                     "end_date": price_range.end_date,
-                    "days_of_stay": price_range.days_of_stay
+                    "days_of_stay": price_range.days_of_stay,
+                    "run_id": price_range.run_id,
+                    "job_id": price_range.job_id
                 }
             )
             return True
@@ -104,6 +108,25 @@ class RedisStorage:
         if keys:
             return self.redis_client.delete(*keys)
         return 0
+    
+    
+    def get_job(self, job_id: str) -> Optional[Job]:
+        """Get a job by its ID."""
+        try:
+            job = Job.fetch(job_id, connection=self.redis_job_client)
+            return job
+        except Exception as e:
+            logger.error(f"Error fetching job: {e}")
+            return None
+
+    def get_job_status(self, job_id: str) -> Optional[str]:
+        """Get the status of a job by its ID."""
+        job = self.get_job(job_id)
+        if job:
+            return job.get_status().value
+        else:
+            logger.info(f"Job with ID {job_id} not found.")
+            return "Not found"
     
     def add_job(self, function: str, data: Any, job_id: str | None = None, timout = 16000) -> bool:
         """Add a job to the Redis queue."""

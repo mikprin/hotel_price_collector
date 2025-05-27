@@ -24,4 +24,11 @@ EXPOSE 8501
 ENV PYTHONUNBUFFERED=1
 
 # Run the application
-CMD ["streamlit", "run", "streamlit_demo.py", "--server.address=0.0.0.0"]
+CMD ["streamlit", "run", "streamlit_demo.py", "--server.address=0.0.0.0", "--server.port=8501", "--server.headless=true", "--server.enableCORS=false", "--server.enableXsrfProtection=false"]
+
+# Add metadata labels
+LABEL maintainer="mikhail.solovyanov@gmail.com" \
+      version="1.0.0" \
+      description="Streamlit webapp + task scheduler" \
+      org.opencontainers.image.licenses="MIT" \
+      Name="hotels-price-absorber-streamlit"

@@ -15,6 +15,7 @@ class HotelPrice(BaseModel):
     room_name: str | None = None # Optional field. In case there will be multiple rooms
     comments: str | None = None
     group_name: str | None = None # For saving series of measurments
+    run_id: str | None = None # For saving which measurment id it belongs to
 
 
 class OstrovokHotelPrice(HotelPrice):

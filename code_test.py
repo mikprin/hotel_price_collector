@@ -11,7 +11,15 @@ from hotel_price_absorber_src.schema import OstrovokHotelPrice
 
 load_dotenv()
 
+os.environ["DB_PATH"] = "./database"
 
+
+TEST_GROUP = "Test group"
+
+from hotel_price_absorber_src.database.sqlite import HotelPriceDB
+
+
+db = HotelPriceDB()
 
 MEASURMENT_GROUP = "Test measurment"
 
@@ -115,6 +123,8 @@ if __name__ == "__main__":
     path_to_save = os.path.join(dir_path, f"./ostrovok_hotel_prices_{today}.csv")
     os.makedirs(dir_path, exist_ok=True)
     df = save_to_csv(prices, path_to_save)
+    
+    db.save_batch(prices)
     
     # Print the results as table for console view
     if df is not None:

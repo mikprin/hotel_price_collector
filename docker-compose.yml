@@ -9,12 +9,15 @@ services:
     build:
       context: ./streamlit_app
       dockerfile: Dockerfile
+    environment:
+      - STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION=false
+      - STREAMLIT_SERVER_ENABLE_CORS=false
     volumes:
       - ./hotel_price_absorber_src:/app/hotel_price_absorber_src
       - ./database:/database
     container_name: streamlit-front-app
     ports:
-      - "8501:8501"
+      - "8501:8501"  # Explicitly bind to all interfaces
     restart: unless-stopped
     networks:
       - hotel_prices_network
