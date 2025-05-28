@@ -21,7 +21,7 @@ from hotel_price_absorber_src.database.redis import PriceRange, RedisStorage
 from hotel_price_absorber_src.database.user_database import HotelGroup, HotelLink, UserDataStorage
 from hotel_price_absorber_src.date_utils import validate_date_range
 from hotel_price_absorber_src.tasks import get_price_range_for_group
-from hotel_price_absorber_src.database.data_conversion import  get_group_dataframe
+from hotel_price_absorber_src.database.data_conversion import  get_group_dataframe, get_group_dataframe_raw
 
 
 # Initialize the storage
@@ -380,11 +380,11 @@ with tab3:
                     if df.is_empty():
                         st.info(f"No price data found for group '{group.group_name}'. Add some price ranges in the 'Price Ranges' tab and wait for data collection to complete.")
                         continue
+
+                    # Polars dates are already in datetime ( from DD-MM-YYYY format)
                     
-                    # Parse dates in Polars (DD-MM-YYYY format)
-                    df = df.with_columns([
-                        pl.col("check_in_date").str.to_date("%d-%m-%Y").alias("check_in_date")
-                    ])
+                    # Sort by check-in date
+                    df = df.sort("check_in_date")
                     
                     # Display basic statistics using Polars
                     st.subheader("📊 Статистика по ценам")
@@ -404,7 +404,6 @@ with tab3:
                             avg_price = df['hotel_price'].mean()
                             st.metric("Средняя цена", f"₽{avg_price:,.0f}")
                         else:
-                            pl.DataFrame(db.get_all_by_group(group.group_name), infer_schema_length=None)
                             st.metric("Средняя цена", "N/A")
                     
                     with col4:
@@ -418,7 +417,7 @@ with tab3:
                     
                     # Show data preview
                     with st.expander("Просмотр данных"):
-                        st.dataframe(df.to_pandas())  # Only convert for display
+                        st.dataframe(get_group_dataframe_raw(group.group_name, remove_duplecates=True).to_pandas())  # Only convert for display
                     
                     # Check if we have the required columns for plotting
                     required_columns = ['hotel_name', 'check_in_date', 'hotel_price']
@@ -440,7 +439,7 @@ with tab3:
                         key=f"chart_type_{group.group_name}"
                     )
                     
-                    # Create the plot using plotly.express directly with Polars
+                    # Create the plot with proper mode control
                     if chart_type == "Линейный график":
                         mode = 'lines'
                     elif chart_type == "График с маркерами":
@@ -448,20 +447,26 @@ with tab3:
                     else:
                         mode = 'markers'
                     
-                    # Plotly Express works directly with Polars DataFrames!
-                    fig = px.line(
-                        df,
-                        x='check_in_date',
-                        y='hotel_price',
-                        color='hotel_name',
-                        markers=(mode in ['lines+markers', 'markers']),
-                        title=f'Динамика цен отелей - {group.group_name}',
-                        labels={
-                            'check_in_date': 'Дата заезда',
-                            'hotel_price': 'Цена (₽)',
-                            'hotel_name': 'Отель'
-                        }
-                    )
+                    # Use go.Figure() with go.Scatter() for full mode control
+                    fig = go.Figure()
+                    
+                    # Get unique hotels and add traces
+                    hotels = df['hotel_name'].unique().to_list()
+                    
+                    for hotel in hotels:
+                        hotel_data = df.filter(pl.col('hotel_name') == hotel)
+                        
+                        fig.add_trace(go.Scatter(
+                            x=hotel_data['check_in_date'].to_list(),
+                            y=hotel_data['hotel_price'].to_list(),
+                            mode=mode,
+                            name=hotel,
+                            line=dict(width=2),
+                            marker=dict(size=6)
+                        ))
+                    
+                    # Set the title
+                    fig.update_layout(title=f'Динамика цен отелей - {group.group_name}')
                     
                     # Update layout for better appearance
                     fig.update_layout(
