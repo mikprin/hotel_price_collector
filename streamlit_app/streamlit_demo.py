@@ -462,8 +462,17 @@ with tab3:
                             mode=mode,
                             name=hotel,
                             line=dict(width=2),
-                            marker=dict(size=6)
+                            marker=dict(size=6),
+                            customdata=hotel_data['day_of_week'].to_list(),  # Add day of week data
+                            hovertemplate='<b>%{fullData.name}</b><br>' +
+                                        'Дата: %{x}<br>' +
+                                        'День недели: %{customdata}<br>' +
+                                        'Цена: ₽%{y:,.0f}<br>' +
+                                        '<extra></extra>'
                         ))
+                    
+                    # Add date range slider
+                    fig.update_xaxes(rangeslider_visible=True)
                     
                     # Set the title
                     fig.update_layout(title=f'Динамика цен отелей - {group.group_name}')
@@ -534,7 +543,7 @@ with tab3:
                         
                         fig_box.update_layout(
                             height=400,
-                            xaxis_tickangle=45,
+                            xaxis_tickangle=15,
                             template='plotly_white'
                         )
                         
@@ -546,27 +555,90 @@ with tab3:
                         
                         # Average price by date using Polars
                         daily_avg = df.group_by('check_in_date').agg([
-                            pl.col('hotel_price').mean().alias('hotel_price')
+                            pl.col('hotel_price').mean().alias('hotel_price'),
+                            pl.col('day_of_week').first().alias('day_of_week')  # Get day of week
                         ]).sort('check_in_date')
                         
-                        # Plotly works directly with Polars
-                        fig_daily = px.line(
-                            daily_avg,
-                            x='check_in_date',
-                            y='hotel_price',
-                            title='Средняя цена по датам',
-                            labels={
-                                'check_in_date': 'Дата заезда',
-                                'hotel_price': 'Средняя цена (₽)'
-                            }
-                        )
+                        # Create enhanced daily price plot with day of week information
+                        fig_daily = go.Figure()
+                        
+                        fig_daily.add_trace(go.Scatter(
+                            x=daily_avg['check_in_date'].to_list(),
+                            y=daily_avg['hotel_price'].to_list(),
+                            mode='lines+markers',
+                            name='Средняя цена',
+                            line=dict(width=3, color='#1f77b4'),
+                            marker=dict(size=8),
+                            customdata=daily_avg['day_of_week'].to_list(),
+                            hovertemplate='<b>Средняя цена</b><br>' +
+                                        'Дата: %{x}<br>' +
+                                        'День недели: %{customdata}<br>' +
+                                        'Средняя цена: ₽%{y:,.0f}<br>' +
+                                        '<extra></extra>'
+                        ))
                         
                         fig_daily.update_layout(
+                            title='Средняя цена по датам',
+                            xaxis_title='Дата заезда',
+                            yaxis_title='Средняя цена (₽)',
                             height=400,
                             template='plotly_white'
                         )
-                        
+                        fig.update_xaxes(rangeslider_visible=True)
                         st.plotly_chart(fig_daily, use_container_width=True)
+                    
+                    # Day of week analysis - bonus feature!
+                    st.subheader("📅 Анализ по дням недели")
+                    
+                    # Average price by day of week
+                    dow_avg = df.group_by('day_of_week').agg([
+                        pl.col('hotel_price').mean().alias('Средняя цена'),
+                        pl.col('hotel_price').count().alias('Количество записей')
+                    ])
+                    
+                    # Sort by day of week order (Monday = 0, Sunday = 6)
+                    day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+                    dow_avg_sorted = []
+                    for day in day_order:
+                        day_data = dow_avg.filter(pl.col('day_of_week') == day)
+                        if not day_data.is_empty():
+                            dow_avg_sorted.append(day_data)
+                    
+                    if dow_avg_sorted:
+                        dow_avg_final = pl.concat(dow_avg_sorted)
+                        
+                        col1, col2 = st.columns(2)
+                        
+                        with col1:
+                            # Bar chart for average prices by day
+                            fig_dow = px.bar(
+                                dow_avg_final,
+                                x='day_of_week',
+                                y='Средняя цена',
+                                title='Средняя цена по дням недели',
+                                labels={
+                                    'day_of_week': 'День недели',
+                                    'Средняя цена': 'Средняя цена (₽)'
+                                },
+                                color='Средняя цена',
+                                color_continuous_scale='viridis'
+                            )
+                            
+                            fig_dow.update_layout(
+                                height=400,
+                                template='plotly_white',
+                                xaxis_tickangle=45
+                            )
+                            
+                            st.plotly_chart(fig_dow, use_container_width=True)
+                        
+                        with col2:
+                            # Display statistics table
+                            st.subheader("Статистика по дням")
+                            dow_display = dow_avg_final.to_pandas()
+                            dow_display['Средняя цена'] = dow_display['Средняя цена'].apply(lambda x: f"₽{x:,.0f}")
+                            dow_display = dow_display.rename(columns={'day_of_week': 'День недели'})
+                            st.dataframe(dow_display.set_index('День недели'))
                 
                 except Exception as e:
                     st.error(f"Error loading data for group '{group.group_name}': {str(e)}")

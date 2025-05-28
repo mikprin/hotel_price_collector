@@ -30,7 +30,8 @@ def get_group_dataframe_raw(group_name: str,
 
 def get_group_dataframe(group_name: str, remove_duplecates: bool = True,
                         start_date: str = None,
-                        end_date: str = None) -> pl.DataFrame:
+                        end_date: str = None,
+                        add_days_of_the_week: bool = True) -> pl.DataFrame:
     """
     Retrieve a DataFrame of hotel prices for a specific group from the SQLite database,
     with optional filtering by date range.
@@ -73,6 +74,13 @@ def get_group_dataframe(group_name: str, remove_duplecates: bool = True,
         for filter_condition in filters[1:]:
             combined_filter = combined_filter & filter_condition
         df = df.filter(combined_filter)
+    
+    if add_days_of_the_week:
+        # Add a column for the day of the week
+        df = df.with_columns([
+            pl.col("check_in_date").dt.strftime('%A').alias("day_of_week"),
+            pl.col("check_in_date").dt.strftime('%a').alias("day_abbr")
+        ])
     
     # df = df.sort(["hotel_url", "check_in_date"])
     
