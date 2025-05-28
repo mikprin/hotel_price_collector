@@ -56,41 +56,6 @@ services:
     networks:
       - hotel_prices_network
 
-  # WireGuard VPN Server
-  wireguard:
-    image: linuxserver/wireguard
-    container_name: hotel_prices_wireguard
-    env_file:
-      - .env
-    cap_add:
-      - NET_ADMIN
-      - SYS_MODULE
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Europe/Moscow  # Adjust to your timezone
-      # - SERVERURL=SET FROM .env
-      - SERVERPORT=53820
-      - PEERS=5  # Number of client configs to generate
-      - PEERDNS=auto
-      - INTERNAL_SUBNET=10.13.13.0/24
-      - ALLOWEDIPS=10.13.13.0/24,172.20.0.0/16  # Allow access to VPN subnet and Docker network
-      - LOG_CONFS=true
-    volumes:
-      - ./wireguard_config:/config
-      - /lib/modules:/lib/modules
-    ports:
-      - "53820:53820/udp"
-    sysctls:
-      - net.ipv4.conf.all.src_valid_mark=1
-    restart: unless-stopped
-    networks:
-      hotel_prices_network:
-        ipv4_address: 172.20.0.10  # Fixed IP for WireGuard server
-
 networks:
   hotel_prices_network:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.20.0.0/16  # Define subnet for predictable routing
