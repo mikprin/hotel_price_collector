@@ -14,12 +14,13 @@ services:
     volumes:
       - ./hotel_price_absorber_src:/app/hotel_price_absorber_src
       - ./database:/database
-    container_name: streamlit-front-app
+    container_name: hotel-prices
     ports:
       - "8501:8501"  # Keep for local access
     restart: unless-stopped
     networks:
-      - hotel_prices_network
+      hotel_prices_network:
+        ipv4_address: 172.20.0.5  # Fixed IP for easy access
 
   hotel_prices_redis:
     container_name: hotel_prices_redis
@@ -30,7 +31,7 @@ services:
       - ./redis_config/redis.conf:/usr/local/etc/redis/redis.conf
     command: redis-server /usr/local/etc/redis/redis.conf --save 60 1 --loglevel warning
     ports:
-      - "16380:16380"
+      - "16390:16390"
     environment:
     - REDIS_MAXMEMORY=2048mb
     networks:
@@ -50,7 +51,7 @@ services:
     shm_size: 4g
     environment:
       - DB_PATH=/home/seluser/database
-      - REDIS_URL=redis://hotel_prices_redis:16380
+      - REDIS_URL=redis://hotel_prices_redis:16390
     depends_on:
       - hotel_prices_redis
     networks:
