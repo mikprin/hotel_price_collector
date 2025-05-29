@@ -87,7 +87,10 @@ def get_price_range_for_group(range: PriceRange) -> bool:
     # Save the DataFrame to a CSV file
     dir = os.getenv("DB_PATH", "/database")
     file_path = os.path.join(dir, "hotel_prices_example", f"{group.group_name}_prices.csv")
-    os.makedirs(dir, exist_ok=True)
-    df.write_csv(file_path)
-    logger.info(f"Prices for group {group.group_name} saved to CSV: {file_path}")
+    try:
+        os.makedirs(dir, exist_ok=True)
+        df.write_csv(file_path)
+        logger.info(f"Prices for group {group.group_name} saved to CSV: {file_path}")
+    except (PermissionError, FileNotFoundError, FileExistsError) as e:
+        logger.error(f"Error saving prices to CSV: {e}")
     return True

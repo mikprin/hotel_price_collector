@@ -18,6 +18,10 @@ def get_price_from_simple_url(url) -> OstrovokHotelPrice:
         
     Returns:
         OstrovokHotelPrice: Object containing hotel name, URL, room info, and price
+        
+    Note: 
+        - Handles case when "There are no rooms available for the selected dates" is shown
+        - Prevents scraping prices from recommended hotels when target hotel has no availability
     """
     logger.debug(f"Extracting price from URL: {url}")
     
@@ -62,6 +66,39 @@ def get_price_from_simple_url(url) -> OstrovokHotelPrice:
             address = address_elem.text
         except:
             address = None
+        
+        # CHECK FOR NO AVAILABILITY MESSAGE FIRST
+        # This prevents scraping prices from recommended hotels when the target hotel has no rooms
+        try:
+            # Check for various "no rooms available" messages in different languages
+            no_availability_texts = [
+                "There are no rooms available for the selected dates",
+                "На выбранные даты нет номеров",
+                "No rooms available",
+                # "Нет номеров",
+                # "Sold out",
+                # "Распродано"
+            ]
+            
+            page_text = driver.find_element(By.TAG_NAME, "body").text.lower()
+            
+            for no_avail_text in no_availability_texts:
+                if no_avail_text.lower() in page_text:
+                    logger.debug(f"No rooms available message found: '{no_avail_text}'")
+                    return OstrovokHotelPrice(
+                        hotel_name=hotel_name,
+                        hotel_url=url,
+                        room_name=None,
+                        hotel_price=0.0,
+                        hotel_currency="₽",
+                        check_in_date=check_in_date,
+                        check_out_date=check_out_date,
+                        comments="No rooms available for selected dates",
+                        measurment_taken_at=measurement_taken_at
+                    )
+                    
+        except Exception as e:
+            logger.debug(f"Error checking for no availability message: {e}")
         
         # PRIMARY METHOD: Look for headline price with resilient selectors
         try:
