@@ -61,11 +61,7 @@ def get_date_range(group_name: str, date_range: str, days_of_stay: int):
 # Function to add a new price range
 def add_price_range(range: PriceRange) -> bool:
     """Add a new price range for a group"""
-    if not validate_date_range(date_range):
-        return False
-    
-    price_range = get_date_range(group_name, date_range, days_of_stay)
-    return redis_storage.add_price_range(price_range)
+    return redis_storage.add_price_range(range)
 
 # Function to load hotel groups
 def load_hotel_groups():
@@ -292,6 +288,7 @@ with tab2:
                                 job_id = redis_storage.add_job( get_price_range_for_group, date_range)
                                 date_range.job_id = job_id
                                 st.success(f"Диапазон дат добавлен для группы {group_name}, JOB_ID: {job_id}")
+                                add_price_range(date_range)
                                 st.rerun()
                             else:
                                 st.error("Не удалось добавить диапазон дат")

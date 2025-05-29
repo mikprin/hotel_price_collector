@@ -9,6 +9,7 @@ services:
       context: ./streamlit_app
       dockerfile: Dockerfile
     environment:
+      - TZ=Europe/Moscow  # Adjust to your timezone
       - STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION=false
       - STREAMLIT_SERVER_ENABLE_CORS=false
     volumes:
@@ -52,6 +53,7 @@ services:
     environment:
       - DB_PATH=/home/seluser/database
       - REDIS_URL=redis://hotel_prices_redis:16390
+      - TZ=Europe/Moscow  # Adjust to your timezone
     depends_on:
       - hotel_prices_redis
     networks:

@@ -60,7 +60,7 @@ def add_date_placeholder(url):
 #     "https://ostrovok.ru/hotel/russia/st._petersburg/mid9721358/wei_by_vertical_hotel/?dates=$DATES&guests=2",
 # ]
 links = [
-    "https://ostrovok.ru/hotel/russia/st._petersburg/mid10006831/maximusvertical_aparthotel/?dates=01.12.2025-05.12.2025&guests=2"
+    "https://ostrovok.ru/hotel/russia/st._petersburg/mid6988404/dom_boutique_hotel/?search=yes&dates=14.08.2025-15.08.2025&guests=1"
 ]
 
 prices = list()

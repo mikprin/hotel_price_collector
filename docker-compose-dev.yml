@@ -11,6 +11,7 @@ services:
     environment:
       - STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION=false
       - STREAMLIT_SERVER_ENABLE_CORS=false
+      - TZ=Asia/Tbilisi  # Adjust to your timezone
     volumes:
       - ./hotel_price_absorber_src:/app/hotel_price_absorber_src
       - ./database:/database
@@ -51,6 +52,7 @@ services:
     environment:
       - DB_PATH=/home/seluser/database
       - REDIS_URL=redis://hotel_prices_redis:16390
+      - TZ=Asia/Tbilisi  # Adjust to your timezone
     depends_on:
       - hotel_prices_redis
     networks:
