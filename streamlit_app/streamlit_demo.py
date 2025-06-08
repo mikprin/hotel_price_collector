@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
 
+import pandas as pd
 
 # Add these imports at the top of your file
 import plotly.graph_objects as go
@@ -370,6 +371,7 @@ with tab3:
             with subtabs[i]:
                 st.subheader(f"Аналитика для группы {group.group_name}")
                 
+                
                 try:
                     # Get data for this group
                     df = get_group_dataframe(group.group_name, remove_duplecates=True)
@@ -382,261 +384,403 @@ with tab3:
                     
                     # Sort by check-in date
                     df = df.sort("check_in_date")
+                                   
+                    # Date range selection
+                    st.markdown(f"""Выберите диапазон дат для анализа цен в группе {group.group_name}. Выбранный диапазон повлияет на все показываемые графики и таблицы ниже.
+По умолчанию показываются все доступные данные.""")
                     
-                    # Display basic statistics using Polars
-                    st.subheader("📊 Статистика по ценам")
+                    col1, col2, col3 = st.columns([1, 1, 1])
                     
-                    col1, col2, col3, col4 = st.columns(4)
+                    # Get min and max dates from the data for default values
+                    df_min_date = df['check_in_date'].min()
+                    df_max_date = df['check_in_date'].max()
                     
+                    # Initialize start and end dates for the date inputs
+                    start_date = df_min_date
+                    end_date = df_max_date
+
+                    # Date inputs for filtering
                     with col1:
-                        total_records = df.height
-                        st.metric("Всего записей", total_records)
+                        start_date = st.date_input(
+                            "Начальная дата",
+                            value=df_min_date,
+                            min_value=df_min_date,
+                            max_value=df_max_date,
+                            key=f"start_date_table_{group.group_name}",
+                            format="DD.MM.YYYY"
+                        )
                     
                     with col2:
-                        unique_hotels = df['hotel_name'].n_unique() if 'hotel_name' in df.columns else 0
-                        st.metric("Уникальных отелей", unique_hotels)
+                        end_date = st.date_input(
+                            "Конечная дата",
+                            value=df_max_date,
+                            min_value=df_min_date,
+                            max_value=df_max_date,
+                            key=f"end_date_table_{group.group_name}",
+                            format="DD.MM.YYYY"
+                        )
                     
                     with col3:
-                        if 'hotel_price' in df.columns:
-                            avg_price = df['hotel_price'].mean()
-                            st.metric("Средняя цена", f"₽{avg_price:,.0f}")
-                        else:
-                            st.metric("Средняя цена", "N/A")
-                    
-                    with col4:
-                        if 'check_in_date' in df.columns:
-                            min_date = df['check_in_date'].min()
-                            max_date = df['check_in_date'].max()
-                            date_range = f"{min_date} - {max_date}"
-                            st.metric("Период данных", date_range)
-                        else:
-                            st.metric("Период данных", "N/A")
-                    
-                    # Show data preview
-                    with st.expander("Просмотр данных"):
-                        st.dataframe(get_group_dataframe_raw(group.group_name, remove_duplecates=True).to_pandas())  # Only convert for display
-                    
-                    # Check if we have the required columns for plotting
-                    required_columns = ['hotel_name', 'check_in_date', 'hotel_price']
-                    missing_columns = [col for col in required_columns if col not in df.columns]
-                    
-                    if missing_columns:
-                        st.error(f"Missing required columns for plotting: {missing_columns}")
-                        st.info("Available columns: " + ", ".join(df.columns))
-                        continue
-                    
-                    # Main price chart - Plotly works directly with Polars!
-                    st.subheader("📈 Динамика цен по отелям")
-                    
-                    # Chart type selection
-                    chart_type = st.radio(
-                        "Выберите тип графика:",
-                        ["Линейный график", "График с маркерами", "Только маркеры"],
-                        horizontal=True,
-                        key=f"chart_type_{group.group_name}"
+                        # Reset button to show all dates
+                        if st.button("Показать все даты", key=f"reset_dates_{group.group_name}"):
+                            start_date = df_min_date
+                            end_date = df_max_date
+                            st.rerun()
+                    # Filter DataFrame by selected date range
+                    date_filtered_df = df.filter(
+                        (pl.col('check_in_date') >= pl.lit(start_date)) &
+                        (pl.col('check_in_date') <= pl.lit(end_date))
                     )
                     
-                    # Create the plot with proper mode control
-                    if chart_type == "Линейный график":
-                        mode = 'lines'
-                    elif chart_type == "График с маркерами":
-                        mode = 'lines+markers'
+                    # Check if the filtered DataFrame is empty
+                    if date_filtered_df.is_empty():
+                        st.warning("Нет данных в выбранном диапазоне дат. Пожалуйста, выберите другой период.")
                     else:
-                        mode = 'markers'
-                    
-                    # Use go.Figure() with go.Scatter() for full mode control
-                    fig = go.Figure()
-                    
-                    # Get unique hotels and add traces
-                    hotels = df['hotel_name'].unique().to_list()
-                    
-                    for hotel in hotels:
-                        hotel_data = df.filter(pl.col('hotel_name') == hotel)
                         
-                        fig.add_trace(go.Scatter(
-                            x=hotel_data['check_in_date'].to_list(),
-                            y=hotel_data['hotel_price'].to_list(),
-                            mode=mode,
-                            name=hotel,
-                            line=dict(width=2),
-                            marker=dict(size=6),
-                            customdata=hotel_data['day_of_week'].to_list(),  # Add day of week data
-                            hovertemplate='<b>%{fullData.name}</b><br>' +
-                                        'Дата: %{x}<br>' +
-                                        'День недели: %{customdata}<br>' +
-                                        'Цена: ₽%{y:,.0f}<br>' +
-                                        '<extra></extra>'
-                        ))
-                    
-                    # Add date range slider
-                    fig.update_xaxes(rangeslider_visible=True)
-                    
-                    # Set the title
-                    fig.update_layout(title=f'Динамика цен отелей - {group.group_name}')
-                    
-                    # Update layout for better appearance
-                    fig.update_layout(
-                        width=None,  # Let streamlit control width
-                        height=600,
-                        hovermode='x unified',
-                        legend=dict(
-                            orientation="v",
-                            yanchor="top",
-                            y=1,
-                            xanchor="left",
-                            x=1.02
-                        ),
-                        xaxis_title='Дата заезда',
-                        yaxis_title='Цена (₽)',
-                        template='plotly_white'
-                    )
-                    
-                    # Update x-axis to rotate labels and show grid
-                    fig.update_xaxes(tickangle=45, showgrid=True, gridwidth=1, gridcolor='LightGray')
-                    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='LightGray')
-                    
-                    # Display the plot in Streamlit
-                    st.plotly_chart(fig, use_container_width=True)
-                    
-                    # Additional analytics using Polars
-                    st.subheader("📊 Дополнительная аналитика")
-                    
-                    # Price comparison table using Polars
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        st.subheader("Статистика по отелям")
+                        # Display basic statistics using Polars
+                        st.subheader("📊 Статистика по ценам")
                         
-                        # Calculate hotel statistics using Polars
-                        hotel_stats = df.group_by('hotel_name').agg([
-                            pl.col('hotel_price').min().alias('Минимальная цена'),
-                            pl.col('hotel_price').max().alias('Максимальная цена'),
-                            pl.col('hotel_price').mean().alias('Средняя цена'),
-                            pl.col('hotel_price').count().alias('Количество записей')
-                        ]).sort('hotel_name')
+                        col1, col2, col3, col4 = st.columns(4)
                         
-                        # Convert to pandas only for display formatting
-                        hotel_stats_pandas = hotel_stats.to_pandas()
+                        with col1:
+                            total_records = date_filtered_df.height
+                            st.metric("Всего записей за выбранный период", total_records)
                         
-                        # Format the prices with ruble symbol
-                        for col in ['Минимальная цена', 'Максимальная цена', 'Средняя цена']:
-                            hotel_stats_pandas[col] = hotel_stats_pandas[col].apply(lambda x: f"₽{x:,.0f}")
+                        with col2:
+                            unique_hotels = date_filtered_df['hotel_name'].n_unique() if 'hotel_name' in df.columns else 0
+                            st.metric("Уникальных отелей", unique_hotels)
                         
-                        st.dataframe(hotel_stats_pandas.set_index('hotel_name'))
-                    
-                    with col2:
-                        st.subheader("Ценовые диапазоны")
-                        # Create a box plot - works directly with Polars
-                        fig_box = px.box(
-                            df,
-                            x='hotel_name',
-                            y='hotel_price',
-                            title='Распределение цен по отелям',
-                            labels={
-                                'hotel_name': 'Отель',
-                                'hotel_price': 'Цена (₽)'
-                            }
+                        with col3:
+                            if 'hotel_price' in date_filtered_df.columns:
+                                avg_price = date_filtered_df['hotel_price'].mean()
+                                st.metric("Средняя цена", f"₽{avg_price:,.0f}")
+                            else:
+                                st.metric("Средняя цена", "N/A")
+                        
+                        with col4:
+                            if 'check_in_date' in date_filtered_df.columns:
+                                min_date = date_filtered_df['check_in_date'].min()
+                                max_date = date_filtered_df['check_in_date'].max()
+                                date_range = f"{min_date} - {max_date}"
+                                st.metric("Период данных", date_range)
+                            else:
+                                st.metric("Период данных", "N/A")
+                        
+                        # Show data preview
+                        with st.expander("Просмотр всех сырых данных"):
+                            st.dataframe(get_group_dataframe_raw(group.group_name, remove_duplecates=True).to_pandas())  # Only convert for display
+                        
+                        # Check if we have the required columns for plotting
+                        required_columns = ['hotel_name', 'check_in_date', 'hotel_price']
+                        missing_columns = [col for col in required_columns if col not in df.columns]
+                        
+                        if missing_columns:
+                            st.error(f"Missing required columns for plotting: {missing_columns}")
+                            st.info("Available columns: " + ", ".join(df.columns))
+                            continue
+                        
+                        # Main price chart - Plotly works directly with Polars!
+                        st.subheader("📈 Динамика цен по отелям")
+                        
+                        # Chart type selection
+                        chart_type = st.radio(
+                            "Выберите тип графика:",
+                            ["Линейный график", "График с маркерами", "Только маркеры"],
+                            horizontal=True,
+                            key=f"chart_type_{group.group_name}"
                         )
                         
-                        fig_box.update_layout(
-                            height=400,
-                            xaxis_tickangle=15,
-                            template='plotly_white'
-                        )
+                        # Create the plot with proper mode control
+                        if chart_type == "Линейный график":
+                            mode = 'lines'
+                        elif chart_type == "График с маркерами":
+                            mode = 'lines+markers'
+                        else:
+                            mode = 'markers'
                         
-                        st.plotly_chart(fig_box, use_container_width=True)
-                    
-                    # Date range analysis
-                    if df['check_in_date'].n_unique() > 1:
-                        st.subheader("📅 Анализ по датам")
+                        # Use go.Figure() with go.Scatter() for full mode control
+                        fig = go.Figure()
                         
-                        # Average price by date using Polars
-                        daily_avg = df.group_by('check_in_date').agg([
-                            pl.col('hotel_price').mean().alias('hotel_price'),
-                            pl.col('day_of_week').first().alias('day_of_week')  # Get day of week
-                        ]).sort('check_in_date')
+                        # Get unique hotels and add traces
+                        hotels = date_filtered_df['hotel_name'].unique().to_list()
                         
-                        # Create enhanced daily price plot with day of week information
-                        fig_daily = go.Figure()
+                        for hotel in hotels:
+                            hotel_data = date_filtered_df.filter(pl.col('hotel_name') == hotel)
+                            
+                            fig.add_trace(go.Scatter(
+                                x=hotel_data['check_in_date'].to_list(),
+                                y=hotel_data['hotel_price'].to_list(),
+                                mode=mode,
+                                name=hotel,
+                                line=dict(width=2),
+                                marker=dict(size=6),
+                                customdata=hotel_data['day_of_week'].to_list(),  # Add day of week data
+                                hovertemplate='<b>%{fullData.name}</b><br>' +
+                                            'Дата: %{x}<br>' +
+                                            'День недели: %{customdata}<br>' +
+                                            'Цена: ₽%{y:,.0f}<br>' +
+                                            '<extra></extra>'
+                            ))
                         
-                        fig_daily.add_trace(go.Scatter(
-                            x=daily_avg['check_in_date'].to_list(),
-                            y=daily_avg['hotel_price'].to_list(),
-                            mode='lines+markers',
-                            name='Средняя цена',
-                            line=dict(width=3, color='#1f77b4'),
-                            marker=dict(size=8),
-                            customdata=daily_avg['day_of_week'].to_list(),
-                            hovertemplate='<b>Средняя цена</b><br>' +
-                                        'Дата: %{x}<br>' +
-                                        'День недели: %{customdata}<br>' +
-                                        'Средняя цена: ₽%{y:,.0f}<br>' +
-                                        '<extra></extra>'
-                        ))
-                        
-                        fig_daily.update_layout(
-                            title='Средняя цена по датам',
-                            xaxis_title='Дата заезда',
-                            yaxis_title='Средняя цена (₽)',
-                            height=400,
-                            template='plotly_white'
-                        )
+                        # Add date range slider
                         fig.update_xaxes(rangeslider_visible=True)
-                        st.plotly_chart(fig_daily, use_container_width=True)
-                    
-                    # Day of week analysis - bonus feature!
-                    st.subheader("📅 Анализ по дням недели")
-                    
-                    # Average price by day of week
-                    dow_avg = df.group_by('day_of_week').agg([
-                        pl.col('hotel_price').mean().alias('Средняя цена'),
-                        pl.col('hotel_price').count().alias('Количество записей')
-                    ])
-                    
-                    # Sort by day of week order (Monday = 0, Sunday = 6)
-                    day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-                    dow_avg_sorted = []
-                    for day in day_order:
-                        day_data = dow_avg.filter(pl.col('day_of_week') == day)
-                        if not day_data.is_empty():
-                            dow_avg_sorted.append(day_data)
-                    
-                    if dow_avg_sorted:
-                        dow_avg_final = pl.concat(dow_avg_sorted)
                         
+                        # Set the title
+                        fig.update_layout(title=f'Динамика цен отелей - {group.group_name}')
+                        
+                        # Update layout for better appearance
+                        fig.update_layout(
+                            width=None,  # Let streamlit control width
+                            height=600,
+                            hovermode='x unified',
+                            legend=dict(
+                                orientation="v",
+                                yanchor="top",
+                                y=1,
+                                xanchor="left",
+                                x=1.02
+                            ),
+                            xaxis_title='Дата заезда',
+                            yaxis_title='Цена (₽)',
+                            template='plotly_white'
+                        )
+                        
+                        # Update x-axis to rotate labels and show grid
+                        fig.update_xaxes(tickangle=45, showgrid=True, gridwidth=1, gridcolor='LightGray')
+                        fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='LightGray')
+                        
+                        # Display the plot in Streamlit
+                        st.plotly_chart(fig, use_container_width=True)
+                        
+                        
+                        # Price comparison table - transposed format
+                        st.subheader("🗓️ Таблица цен по датам")
+
+                        # Create pivot table with dates as columns and hotels as rows
+                        try:
+                            # Get unique dates and hotels
+                            unique_dates = sorted(date_filtered_df['check_in_date'].unique().to_list())
+                            unique_hotels = date_filtered_df['hotel_name'].unique().to_list()
+                            
+                            # Create a pivot-like structure using Polars
+                            pivot_data = {}
+                            
+                            # Initialize the data structure
+                            for hotel in unique_hotels:
+                                pivot_data[hotel] = {}
+                                for date in unique_dates:
+                                    # Get price for this hotel and date combination
+                                    price_data = date_filtered_df.filter(
+                                        (pl.col('hotel_name') == hotel) & 
+                                        (pl.col('check_in_date') == date)
+                                    )
+                                    
+                                    if not price_data.is_empty():
+                                        # If multiple prices for same hotel/date, take the average
+                                        avg_price = price_data['hotel_price'].mean()
+                                        pivot_data[hotel][date] = f"₽{avg_price:,.0f}"
+                                    else:
+                                        pivot_data[hotel][date] = "-"
+                            
+                            # Convert to pandas DataFrame for easier table display
+                            
+                            
+                            # Create DataFrame from pivot_data
+                            table_df = pd.DataFrame(pivot_data).T  # Transpose so hotels are rows
+                            
+                            # Format column names (dates) for better display
+                            table_df.columns = [date.strftime('%d.%m.%Y') for date in table_df.columns]
+                            
+                            # Calculate row averages (average price per hotel)
+                            avg_prices = []
+                            for hotel in unique_hotels:
+                                hotel_prices = date_filtered_df.filter(pl.col('hotel_name') == hotel)['hotel_price']
+                                if not hotel_prices.is_empty():
+                                    avg_price = hotel_prices.mean()
+                                    avg_prices.append(f"₽{avg_price:,.0f}")
+                                else:
+                                    avg_prices.append("-")
+                            
+                            table_df['Средняя цена'] = avg_prices
+                            
+                            # Calculate daily averages (bottom row)
+                            daily_averages = {}
+                            for date in unique_dates:
+                                daily_data = date_filtered_df.filter(pl.col('check_in_date') == date)
+                                if not daily_data.is_empty():
+                                    daily_avg = daily_data['hotel_price'].mean()
+                                    daily_averages[date.strftime('%d.%m.%Y')] = f"₽{daily_avg:,.0f}"
+                                else:
+                                    daily_averages[date.strftime('%d.%m.%Y')] = "-"
+                            
+                            # Add overall average
+                            overall_avg = date_filtered_df['hotel_price'].mean()
+                            daily_averages['Средняя цена'] = f"₽{overall_avg:,.0f}"
+                            
+                            # Add daily averages as a new row
+                            daily_avg_series = pd.Series(daily_averages, name='Среднее по дням')
+                            table_df = pd.concat([table_df, daily_avg_series.to_frame().T])
+                            
+                            # Display the table
+                            st.dataframe(
+                                table_df,
+                                use_container_width=True,
+                                height=min(400, (len(table_df) + 1) * 35)  # Dynamic height based on rows
+                            )
+                            
+                            # Add download button for the table
+                            csv_data = table_df.to_csv(index=True)
+                            st.download_button(
+                                label="📥 Скачать таблицу как CSV",
+                                data=csv_data,
+                                file_name=f"price_table_{group.group_name}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                                mime="text/csv"
+                            )
+                            
+                        except Exception as e:
+                            st.error(f"Ошибка при создании таблицы цен: {str(e)}")
+                            st.info("Убедитесь, что данные содержат корректные цены и даты.")
+                        
+                        # Additional analytics using Polars
+                        st.subheader("📊 Дополнительная аналитика")
+                        
+                        # Price comparison table using Polars
                         col1, col2 = st.columns(2)
                         
                         with col1:
-                            # Bar chart for average prices by day
-                            fig_dow = px.bar(
-                                dow_avg_final,
-                                x='day_of_week',
-                                y='Средняя цена',
-                                title='Средняя цена по дням недели',
-                                labels={
-                                    'day_of_week': 'День недели',
-                                    'Средняя цена': 'Средняя цена (₽)'
-                                },
-                                color='Средняя цена',
-                                color_continuous_scale='viridis'
-                            )
+                            st.subheader("Статистика по отелям")
                             
-                            fig_dow.update_layout(
-                                height=400,
-                                template='plotly_white',
-                                xaxis_tickangle=45
-                            )
+                            # Calculate hotel statistics using Polars
+                            hotel_stats = date_filtered_df.group_by('hotel_name').agg([
+                                pl.col('hotel_price').min().alias('Минимальная цена'),
+                                pl.col('hotel_price').max().alias('Максимальная цена'),
+                                pl.col('hotel_price').mean().alias('Средняя цена'),
+                                pl.col('hotel_price').count().alias('Количество записей')
+                            ]).sort('hotel_name')
                             
-                            st.plotly_chart(fig_dow, use_container_width=True)
+                            # Convert to pandas only for display formatting
+                            hotel_stats_pandas = hotel_stats.to_pandas()
+                            
+                            # Format the prices with ruble symbol
+                            for col in ['Минимальная цена', 'Максимальная цена', 'Средняя цена']:
+                                hotel_stats_pandas[col] = hotel_stats_pandas[col].apply(lambda x: f"₽{x:,.0f}")
+                            
+                            st.dataframe(hotel_stats_pandas.set_index('hotel_name'))
                         
                         with col2:
-                            # Display statistics table
-                            st.subheader("Статистика по дням")
-                            dow_display = dow_avg_final.to_pandas()
-                            dow_display['Средняя цена'] = dow_display['Средняя цена'].apply(lambda x: f"₽{x:,.0f}")
-                            dow_display = dow_display.rename(columns={'day_of_week': 'День недели'})
-                            st.dataframe(dow_display.set_index('День недели'))
-                
+                            st.subheader("Ценовые диапазоны")
+                            # Create a box plot - works directly with Polars
+                            fig_box = px.box(
+                                date_filtered_df,
+                                x='hotel_name',
+                                y='hotel_price',
+                                title='Распределение цен по отелям',
+                                labels={
+                                    'hotel_name': 'Отель',
+                                    'hotel_price': 'Цена (₽)'
+                                }
+                            )
+                            
+                            fig_box.update_layout(
+                                height=400,
+                                xaxis_tickangle=15,
+                                template='plotly_white'
+                            )
+                            
+                            st.plotly_chart(fig_box, use_container_width=True)
+                            
+                        
+                        # Date range analysis
+                        if date_filtered_df['check_in_date'].n_unique() > 1:
+                            st.subheader("📅 Анализ по датам")
+                            
+                            # Average price by date using Polars
+                            daily_avg = date_filtered_df.group_by('check_in_date').agg([
+                                pl.col('hotel_price').mean().alias('hotel_price'),
+                                pl.col('day_of_week').first().alias('day_of_week')  # Get day of week
+                            ]).sort('check_in_date')
+                            
+                            # Create enhanced daily price plot with day of week information
+                            fig_daily = go.Figure()
+                            
+                            fig_daily.add_trace(go.Scatter(
+                                x=daily_avg['check_in_date'].to_list(),
+                                y=daily_avg['hotel_price'].to_list(),
+                                mode='lines+markers',
+                                name='Средняя цена',
+                                line=dict(width=3, color='#1f77b4'),
+                                marker=dict(size=8),
+                                customdata=daily_avg['day_of_week'].to_list(),
+                                hovertemplate='<b>Средняя цена</b><br>' +
+                                            'Дата: %{x}<br>' +
+                                            'День недели: %{customdata}<br>' +
+                                            'Средняя цена: ₽%{y:,.0f}<br>' +
+                                            '<extra></extra>'
+                            ))
+                            
+                            fig_daily.update_layout(
+                                title='Средняя цена по датам',
+                                xaxis_title='Дата заезда',
+                                yaxis_title='Средняя цена (₽)',
+                                height=400,
+                                template='plotly_white'
+                            )
+                            fig_daily.update_xaxes(rangeslider_visible=True)
+                            st.plotly_chart(fig_daily, use_container_width=True)
+                        
+                        # Day of week analysis - bonus feature!
+                        st.subheader("📅 Анализ по дням недели")
+                        
+                        # Average price by day of week
+                        dow_avg = date_filtered_df.group_by('day_of_week').agg([
+                            pl.col('hotel_price').mean().alias('Средняя цена'),
+                            pl.col('hotel_price').count().alias('Количество записей')
+                        ])
+                        
+                        # Sort by day of week order (Monday = 0, Sunday = 6)
+                        day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+                        dow_avg_sorted = []
+                        for day in day_order:
+                            day_data = dow_avg.filter(pl.col('day_of_week') == day)
+                            if not day_data.is_empty():
+                                dow_avg_sorted.append(day_data)
+                        
+                        if dow_avg_sorted:
+                            dow_avg_final = pl.concat(dow_avg_sorted)
+                            
+                            col1, col2 = st.columns(2)
+                            
+                            with col1:
+                                # Bar chart for average prices by day
+                                fig_dow = px.bar(
+                                    dow_avg_final,
+                                    x='day_of_week',
+                                    y='Средняя цена',
+                                    title='Средняя цена по дням недели',
+                                    labels={
+                                        'day_of_week': 'День недели',
+                                        'Средняя цена': 'Средняя цена (₽)'
+                                    },
+                                    color='Средняя цена',
+                                    color_continuous_scale='viridis'
+                                )
+                                
+                                fig_dow.update_layout(
+                                    height=400,
+                                    template='plotly_white',
+                                    xaxis_tickangle=45
+                                )
+                                
+                                st.plotly_chart(fig_dow, use_container_width=True)
+                            
+                            with col2:
+                                # Display statistics table
+                                st.subheader("Статистика по дням")
+                                dow_display = dow_avg_final.to_pandas()
+                                dow_display['Средняя цена'] = dow_display['Средняя цена'].apply(lambda x: f"₽{x:,.0f}")
+                                dow_display = dow_display.rename(columns={'day_of_week': 'День недели'})
+                                st.dataframe(dow_display.set_index('День недели'))
+                    
                 except Exception as e:
                     st.error(f"Error loading data for group '{group.group_name}': {str(e)}")
                     st.info("Make sure you have collected some price data for this group.")
