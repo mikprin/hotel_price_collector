@@ -84,6 +84,9 @@ def get_group_dataframe(group_name: str, remove_duplecates: bool = True,
     
     # df = df.sort(["hotel_url", "check_in_date"])
     
+    # Drop all values where price is 0 or None
+    df = df.filter(pl.col("hotel_price").is_not_null() & (pl.col("hotel_price") > 0))
+    
     return df
     
     

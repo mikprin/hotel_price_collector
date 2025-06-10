@@ -17,7 +17,6 @@ class HotelPrice(BaseModel):
     group_name: str | None = None # For saving series of measurments
     run_id: str | None = None # For saving which measurment id it belongs to
 
-
 class OstrovokHotelPrice(HotelPrice):
     """
     Schema for Ostrovok hotel price.
