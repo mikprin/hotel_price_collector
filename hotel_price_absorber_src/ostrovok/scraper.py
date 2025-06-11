@@ -1,5 +1,6 @@
 import re
 import time
+from datetime import datetime, timedelta
 
 from selenium.webdriver.common.by import By
 
@@ -8,7 +9,30 @@ from hotel_price_absorber_src.logger import general_logger as logger
 from hotel_price_absorber_src.schema import OstrovokHotelPrice
 
 
-def get_price_from_simple_url(url) -> OstrovokHotelPrice:
+def normalize_the_price(price: float, check_in_date: str, check_out_date: str) -> float:
+    """Get average price per day for the given dates."""
+    try:
+        # Parse dates from the provided strings
+        check_in = datetime.strptime(check_in_date, "%d-%m-%Y")
+        check_out = datetime.strptime(check_out_date, "%d-%m-%Y")
+        
+        # Calculate the number of nights
+        num_nights = (check_out - check_in).days
+        
+        if num_nights <= 0:
+            logger.error(f"Invalid date range: {check_in_date} to {check_out_date}")
+            return 0.0
+        
+        # Calculate average price per night
+        average_price_per_night = price / num_nights
+        return average_price_per_night
+    
+    except Exception as e:
+        logger.error(f"Error normalizing price: {e}")
+        return 0.0
+    
+
+def get_price_from_simple_url(url, normalize: bool = True) -> OstrovokHotelPrice:
     """
     Extracts hotel price information from an Ostrovok.ru URL.
     
@@ -282,11 +306,14 @@ def get_price_from_simple_url(url) -> OstrovokHotelPrice:
         
         # Create and return the result object with the new schema
         if best_room and lowest_price != float('inf'):
+            # Normalize the price if requested in the function arguments
+            normalized_price = normalize_the_price(best_room["price"], check_in_date, check_out_date) if normalize else best_room["price"]
+            
             return OstrovokHotelPrice(
                 hotel_name=hotel_name,
                 hotel_url=url,
                 room_name=best_room["room_name"],
-                hotel_price=best_room["price"],
+                hotel_price=normalized_price,
                 hotel_currency="₽",
                 check_in_date=check_in_date,
                 check_out_date=check_out_date,
