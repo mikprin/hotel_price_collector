@@ -561,7 +561,7 @@ def render_price_analytics_tab(group):
                 )
                 
                 # Add download button for the table
-                csv_data = table_df.to_csv(index=True)
+                csv_data = table_df.to_csv(index=True, encoding='utf-8-sig')
                 st.download_button(
                     label="📥 Скачать таблицу как CSV",
                     data=csv_data,
