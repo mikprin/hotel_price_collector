@@ -21,15 +21,21 @@ def replace_dates_with_two_following_days(url, extra_days=2, length_of_stay=2):
 
     return updated_url
 
-
-def replace_dates_with_placeholder(links):
-    # Regular expression to match the dates pattern in the URL
-    pattern = r'(dates=)(\d{2}\.\d{2}\.\d{4}-\d{2}\.\d{2}\.\d{4})'
+def generate_date_pairs(start_date, end_date, stay_length=1) -> list[tuple[datetime, datetime]]:
+    """
+    Generate all possible date pairs within a range with a fixed stay length.
+    Returns list of (check_in, check_out) tuples.
+    """
+    date_pairs = []
+    current_date = start_date
     
-    # Replace the matched pattern with dates=$DATES
-    modified_links = [re.sub(pattern, r'\1$DATES', link) for link in links]
+    while current_date <= end_date - timedelta(days=stay_length):
+        check_in = current_date
+        check_out = current_date + timedelta(days=stay_length)
+        date_pairs.append((check_in, check_out))
+        current_date += timedelta(days=1)
     
-    return modified_links
+    return date_pairs
 
 # Function to validate date range format
 def validate_date_range(date_range: str) -> bool:
@@ -52,22 +58,3 @@ def validate_date_range(date_range: str) -> bool:
         return False
     
 
-def generate_date_pairs(start_date, end_date, stay_length=1) -> list[tuple[datetime, datetime]]:
-    """
-    Generate all possible date pairs within a range with a fixed stay length.
-    Returns list of (check_in, check_out) tuples.
-    """
-    date_pairs = []
-    current_date = start_date
-    
-    while current_date <= end_date - timedelta(days=stay_length):
-        check_in = current_date
-        check_out = current_date + timedelta(days=stay_length)
-        date_pairs.append((check_in, check_out))
-        current_date += timedelta(days=1)
-    
-    return date_pairs
-
-def format_date_for_url(date_obj):
-    """Format a datetime object to dd.mm.yyyy as required by Ostrovok URLs."""
-    return date_obj.strftime('%d.%m.%Y')
