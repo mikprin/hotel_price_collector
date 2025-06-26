@@ -1,5 +1,7 @@
 import re
-
+from datetime import datetime
+from typing import List, Tuple
+import urllib.parse
 
 def extract_dates_from_url(url: str) -> tuple[str, str]:
     """Extract check-in and check-out dates from URL and convert to DD-MM-YYYY format."""
@@ -19,6 +21,7 @@ def extract_dates_from_url(url: str) -> tuple[str, str]:
         check_out = f"{day}-{month}-{year}"
     
     return check_in, check_out
+
 
 def replace_dates_with_placeholder(links):
     # Regular expression to match the checkIn and checkOut dates pattern in the URL
