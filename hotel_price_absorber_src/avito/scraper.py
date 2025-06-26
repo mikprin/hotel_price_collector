@@ -353,83 +353,81 @@ def avito_get_price_from_avito_url(url: str, group_name: str, hotel_name: str | 
     """
     logger.debug(f"Extracting price from URL: {url}")
     
-    driver = get_chrome_driver()
+    with get_chrome_driver() as driver:
     
-    try:
-        driver.get(url)
-        check_in_date, check_out_date = extract_dates_from_url(url)
-        
-        # Get current timestamp
-        timestamp = int(datetime.now().timestamp())
-        
-        # Wait for the page to load
-        WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.TAG_NAME, "body"))
-        )
-        
-        # Wait specifically for price container to load
         try:
+            driver.get(url)
+            check_in_date, check_out_date = extract_dates_from_url(url)
+            
+            # Get current timestamp
+            timestamp = int(datetime.now().timestamp())
+            
+            # Wait for the page to load
             WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, '[data-marker="item-view/item-price-container"]'))
+                EC.presence_of_element_located((By.TAG_NAME, "body"))
             )
-        except TimeoutException:
-            logger.warning("Price container not found, proceeding anyway")
-        
-        # Get hotel name from title if not defined in call
-        if hotel_name is None:
+            
+            # Wait specifically for price container to load
             try:
-                title_element = WebDriverWait(driver, 5).until(
-                    EC.presence_of_element_located((By.TAG_NAME, "h1"))
+                WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, '[data-marker="item-view/item-price-container"]'))
                 )
-                hotel_name = title_element.text.strip()
-            except (TimeoutException, NoSuchElementException):
+            except TimeoutException:
+                logger.warning("Price container not found, proceeding anyway")
+            
+            # Get hotel name from title if not defined in call
+            if hotel_name is None:
                 try:
-                    hotel_name = driver.title.split('|')[0].strip()
-                except:
-                    hotel_name = None
-        
-        # Get room details
-        room_name = None
-        try:
-            room_details = driver.find_elements(By.XPATH, "//*[contains(text(), 'м²')]")
-            if room_details:
-                for detail in room_details:
-                    text = detail.text.strip()
-                    if 'м²' in text and 'кроват' in text.lower():
-                        room_name = text
-                        break
-                else:
-                    room_name = room_details[0].text.strip()
+                    title_element = WebDriverWait(driver, 5).until(
+                        EC.presence_of_element_located((By.TAG_NAME, "h1"))
+                    )
+                    hotel_name = title_element.text.strip()
+                except (TimeoutException, NoSuchElementException):
+                    try:
+                        hotel_name = driver.title.split('|')[0].strip()
+                    except:
+                        hotel_name = None
+            
+            # Get room details
+            room_name = None
+            try:
+                room_details = driver.find_elements(By.XPATH, "//*[contains(text(), 'м²')]")
+                if room_details:
+                    for detail in room_details:
+                        text = detail.text.strip()
+                        if 'м²' in text and 'кроват' in text.lower():
+                            room_name = text
+                            break
+                    else:
+                        room_name = room_details[0].text.strip()
+            except Exception as e:
+                logger.warning(f"Could not extract room details: {str(e)}")
+            
+            # Extract price using improved targeting
+            hotel_price, hotel_currency, price_text = extract_avito_price_targeted(driver)
+            
+            # Create appropriate comment based on availability
+            if hotel_price == 0.0 and price_text and 'от' in price_text:
+                comment = f"Room not available for selected dates ({check_in_date} to {check_out_date}). Showing starting price: {price_text}. Scraped at {datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')}"
+            else:
+                comment = f"Scraped from Avito.ru at {datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')}. Price text: {price_text}"
+            
+            logger.info(f"Final extracted price: {hotel_price} {hotel_currency}")
+            
+            # Create the HotelPrice object
+            return HotelPrice(
+                hotel_url=url,
+                hotel_price=hotel_price,
+                measurment_taken_at=timestamp,
+                check_in_date=check_in_date,
+                check_out_date=check_out_date,
+                hotel_name=hotel_name,
+                hotel_currency=hotel_currency,
+                room_name=room_name,
+                comments=comment,
+                group_name=group_name
+            )
+            
         except Exception as e:
-            logger.warning(f"Could not extract room details: {str(e)}")
-        
-        # Extract price using improved targeting
-        hotel_price, hotel_currency, price_text = extract_avito_price_targeted(driver)
-        
-        # Create appropriate comment based on availability
-        if hotel_price == 0.0 and price_text and 'от' in price_text:
-            comment = f"Room not available for selected dates ({check_in_date} to {check_out_date}). Showing starting price: {price_text}. Scraped at {datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')}"
-        else:
-            comment = f"Scraped from Avito.ru at {datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')}. Price text: {price_text}"
-        
-        logger.info(f"Final extracted price: {hotel_price} {hotel_currency}")
-        
-        # Create the HotelPrice object
-        return HotelPrice(
-            hotel_url=url,
-            hotel_price=hotel_price,
-            measurment_taken_at=timestamp,
-            check_in_date=check_in_date,
-            check_out_date=check_out_date,
-            hotel_name=hotel_name,
-            hotel_currency=hotel_currency,
-            room_name=room_name,
-            comments=comment,
-            group_name=group_name
-        )
-        
-    except Exception as e:
-        logger.error(f"Error in avito_get_price_from_avito_url: {str(e)}")
-        raise e
-    finally:
-        driver.quit()
+            logger.error(f"Error in avito_get_price_from_avito_url: {str(e)}")
+            raise e

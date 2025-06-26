@@ -107,6 +107,10 @@ def get_price_range_for_group(range: PriceRange) -> bool:
                 except Exception as e:
                     logger.error(f"Error collecting price for hotel {hotel.name} for {formatted_start_date}:\n{e}")
 
+            else:
+                logger.error(f"Unsupported URL type for hotel {hotel.name}: {hotel.url}")
+                continue
+            
             # Simulate a random delay between requests
             time.sleep(random.uniform(0.5, 5.0))
             
