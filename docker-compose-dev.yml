@@ -53,6 +53,7 @@ services:
       - DB_PATH=/home/seluser/database
       - REDIS_URL=redis://hotel_prices_redis:16390
       - TZ=Asia/Tbilisi  # Adjust to your timezone
+      - SE_NODE_SESSION_TIMEOUT=600 # Increase session timeout for long-running tasks
     depends_on:
       - hotel_prices_redis
     networks:
