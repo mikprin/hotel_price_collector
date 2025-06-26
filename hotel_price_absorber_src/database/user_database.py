@@ -127,6 +127,9 @@ class UserDataStorage:
                     if existing_hotel.url == hotel.url:
                         return False
                 
+                if hotel.name is None:
+                    return False  # Hotel name is required
+                
                 group.hotels.append(hotel)
                 self._save_data(data)
                 return True

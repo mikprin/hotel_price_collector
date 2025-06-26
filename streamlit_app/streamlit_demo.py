@@ -178,8 +178,7 @@ def render_manage_links_tab(group):
             # Add hotels
             for url in to_add:
                 if url:  # Skip empty URLs
-                    add_hotel_to_group(group.group_name, url)
-            
+                    _ = add_hotel_to_group(group.group_name, url)
             st.success("Отели успешно обновлены!")
             st.rerun()
     
@@ -203,7 +202,7 @@ https://ostrovok.ru/hotel/russia/sochi/mid10515790/silva_guest_house/?q=2042&dat
                 st.success(f"Отель добавлен в группу {group.group_name} с названием {new_name}")
                 st.rerun()
             else:
-                st.error(f"Отель уже существует в группе {group.group_name} или неверный URL")
+                st.error(f"Отель уже существует в группе {group.group_name} или неверный URL. Или нет названия отеля.")
 
 # Function to render price ranges tab for a specific group
 def render_price_ranges_tab(group_name):
