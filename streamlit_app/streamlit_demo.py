@@ -315,7 +315,7 @@ def render_price_analytics_tab(group):
         
         # Sort by check-in date
         df = df.sort("check_in_date")
-                       
+        
         # Date range selection
         st.markdown(f"""Выберите диапазон дат для анализа цен в группе {group.group_name}. Выбранный диапазон повлияет на все показываемые графики и таблицы ниже.
 По умолчанию показываются все доступные данные.""")
@@ -327,14 +327,16 @@ def render_price_analytics_tab(group):
         df_max_date = df['check_in_date'].max()
         
         # Initialize start and end dates for the date inputs
-        start_date = df_min_date
+        
+        default_start_date = datetime.now().date()
+        start_date = default_start_date
         end_date = df_max_date
 
         # Date inputs for filtering
         with col1:
             start_date = st.date_input(
                 "Начальная дата",
-                value=df_min_date,
+                value=default_start_date,
                 min_value=df_min_date,
                 max_value=df_max_date,
                 key=f"start_date_table_{group.group_name}",
@@ -356,7 +358,7 @@ def render_price_analytics_tab(group):
             if st.button("Показать все даты", key=f"reset_dates_{group.group_name}"):
                 start_date = df_min_date
                 end_date = df_max_date
-                st.rerun()
+                # st.rerun()
         # Filter DataFrame by selected date range
         date_filtered_df = df.filter(
             (pl.col('check_in_date') >= pl.lit(start_date)) &
