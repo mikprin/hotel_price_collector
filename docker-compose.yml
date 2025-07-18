@@ -74,8 +74,8 @@ services:
       - PGID=1000
       - TZ=Europe/Moscow  # Adjust to your timezone
       # - SERVERURL=SET FROM .env
-      - SERVERPORT=53820
-      - PEERS=5  # Number of client configs to generate
+      - SERVERPORT=${WG_PORT:-53820}
+      - PEERS=10  # Number of client configs to generate
       - PEERDNS=auto
       - INTERNAL_SUBNET=10.13.13.0/24
       - ALLOWEDIPS=10.13.13.0/24,172.20.0.0/16  # Allow access to VPN subnet and Docker network
