@@ -46,6 +46,14 @@ def get_group_dataframe(group_name: str, remove_duplecates: bool = True,
     """
     df = get_group_dataframe_raw(group_name, remove_duplecates)
     
+    
+    # Remove all rows where check_in_date or check_out_date cannot be parsed
+    df = df.filter(
+        pl.col("check_in_date").str.contains(r"^\d{2}-\d{2}-\d{4}$") &
+        pl.col("check_out_date").str.contains(r"^\d{2}-\d{2}-\d{4}$")
+    )
+    
+    
         # Parse dates in Polars (DD-MM-YYYY format)
     df = df.with_columns([
         pl.col("check_in_date").str.to_date("%d-%m-%Y").alias("check_in_date")
