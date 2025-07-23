@@ -23,7 +23,7 @@ from hotel_price_absorber_src.database.user_database import HotelGroup, HotelLin
 from hotel_price_absorber_src.date_utils import validate_date_range
 from hotel_price_absorber_src.tasks import get_price_range_for_group
 from hotel_price_absorber_src.database.data_conversion import  get_group_dataframe, get_group_dataframe_raw
-
+from hotel_price_absorber_src.logger import general_logger as logger
 
 # Initialize the storage
 storage = UserDataStorage()
@@ -328,7 +328,10 @@ def render_price_analytics_tab(group):
         
         # Initialize start and end dates for the date inputs
         
-        default_start_date = datetime.now().date()
+        default_start_date = max(datetime.now().date(), df_min_date)
+        # default_start_date = df_min_date
+        
+        # logger.info(f"Default start date: {default_start_date}, type: {type(default_start_date)}")
         start_date = default_start_date
         end_date = df_max_date
 
