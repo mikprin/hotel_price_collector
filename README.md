@@ -1,74 +1,83 @@
 # Hotel Price Absorber
 
-A tool for collecting and analyzing hotel prices from Ostrovok.ru across multiple date ranges.
+A web-based tool for collecting and analyzing hotel prices from Ostrovok.ru and other platforms across multiple date ranges.
+
+## 🎯 Demo
+
+**[Click to see in action! →](https://youtu.be/X-d0_lrPkUM)**
+
+*Experience automated hotel price monitoring in action*
 
 ## Overview
 
-Hotel Price Absorber helps you track and compare hotel prices over specific date ranges. The tool scrapes pricing data from Ostrovok.ru for a list of hotels and saves the results to CSV for analysis.
+Hotel Price Absorber is a web service that helps hotel revenue managers track and compare competitor prices over specific date ranges. The platform automatically scrapes pricing data from Ostrovok.ru, Avito, and similar platforms, then builds intelligent analytics to help you make better pricing decisions.
 
 ## Features
 
-- Process raw hotel URLs from Ostrovok.ru
-- Collect prices across multiple date ranges
-- Support for date ranges in Russian format
-- Flexible stay length configuration
-- Anti-scraping measures with randomized delays
-- Comprehensive data output with price statistics
+- **Automated Price Monitoring**: Continuous scraping from multiple platforms (Ostrovok.ru, Avito, etc.)
+- **Smart Analytics**: AI-powered insights for pricing strategy optimization  
+- **Multi-Platform Support**: Monitor prices across various booking platforms
+- **Flexible Date Ranges**: Track prices for any period with customizable stay lengths
+- **Time-Saving Automation**: Eliminate manual price checking where traditional rate shoppers fail
+- **Comprehensive Reporting**: Detailed analytics and trend visualization
+- **Real-time Updates**: 24/7 price monitoring with instant notifications
 
-## Installation
+## Why Hotel Price Absorber?
 
-```bash
-# Clone the repository
-git clone ...
-cd hotel-price-absorber
+- ⏰ **Save 5+ hours daily** on manual price monitoring
+- 📊 **Make data-driven decisions** with intelligent analytics
+- 🎯 **Stay competitive** with real-time competitor insights
+- 🤖 **Automate where others can't** - works beyond existing rate shoppers
+- 💰 **Increase revenue** through optimized pricing strategies
 
-# Install dependencies
-pip install -r requirements.txt
+## Getting Started
+
+1. **[Sign up for demo access](https://your-demo-link.com)**
+2. **Add your competitors** - Input hotel URLs you want to monitor
+3. **Set date ranges** - Define monitoring periods in flexible formats
+4. **Configure alerts** - Get notified of significant price changes
+5. **Analyze & optimize** - Use AI insights to adjust your pricing
+
+## Input Examples
+
+**Hotel URLs**:
+
+```
+https://ostrovok.ru/hotel/russia/st._petersburg/mid10006831/maximusvertical_aparthotel/
+https://ostrovok.ru/hotel/russia/st._petersburg/mid10675845/simple_stunningaparts_apartments/
 ```
 
-## Usage
+## Data Output
 
-### Collecting Prices by Date Range
+The platform provides:
+- **Price Analytics**: Historical trends, price predictions, competitor comparison
+- **Market Intelligence**: Demand patterns, seasonal insights, revenue optimization tips
+- **Custom Reports**: Exportable data in CSV, Excel, and PDF formats
 
-```bash
-python price_collector.py --links hotel_links.txt --dates date_ranges.txt --stay 2 --output results/hotel_prices.csv
-```
+## Who It's For
 
-### Parameters
+- 🏨 **Revenue Managers** - Optimize pricing strategies
+- 📈 **Hotel Directors** - Make informed business decisions  
+- 🏢 **Property Owners** - Maximize rental income
+- 💼 **Hospitality Consultants** - Provide data-driven recommendations
 
-- `--links`: File containing raw hotel URLs (one per line)
-- `--dates`: File containing date ranges in Russian format (one per line)
-- `--stay`: Length of stay in days (default: 1)
-- `--output`: Path for the output CSV file
+## Support
 
-### Input Examples
+- 📧 **Email**: mikhail.solovyanov@gmail.com
+- 💬 **Live Chat**: @Miksolo
 
-**hotel_links.txt**:
-```
-https://ostrovok.ru/hotel/russia/st._petersburg/mid10006831/maximusvertical_aparthotel/?dates=08.11.2024-09.11.2024&guests=2
-https://ostrovok.ru/hotel/russia/st._petersburg/mid10675845/simple_stunningaparts_apartments/?dates=03.10.2024-05.10.2024&guests=2
-```
+## Pricing
 
-**date_ranges.txt**:
-```
-Даты с 20 по 30 мая
-С 1 по 10 июня
-с 3 по 10 июля
-```
+- **Demo**: Free access with limited features
+- **Professional**: Contact us for pricing
+- **Enterprise**: Custom solutions available
 
-## Output
+## Technology
 
-The script generates a CSV file containing:
-- Hotel details (name, URL, location)
-- Price information (amount, currency)
-- Date information (check-in, check-out, date range)
-- Additional metadata from the original source
-
-## Requirements
-
-- Python 3.8+
-- polars
-- Requires the `hotel_price_absorber_src` package
+Built with modern web technologies for reliability and scale:
+- Real-time data processing
+- Cloud-based infrastructure
+- AI-powered analytics engine
 
 ## License
 
@@ -77,3 +86,8 @@ MIT
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+---
+
+**Ready to revolutionize your hotel pricing strategy?**  
+[Start with our demo →](https://your-demo-link.com)
