@@ -335,12 +335,14 @@ def render_price_analytics_tab(group):
         start_date = default_start_date
         end_date = df_max_date
 
+        field_min_date = min(df_min_date, default_start_date)
+
         # Date inputs for filtering
         with col1:
             start_date = st.date_input(
                 "Начальная дата",
                 value=default_start_date,
-                min_value=df_min_date,
+                min_value=field_min_date,
                 max_value=df_max_date,
                 key=f"start_date_table_{group.group_name}",
                 format="DD.MM.YYYY"
